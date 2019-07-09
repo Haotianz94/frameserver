@@ -7,8 +7,8 @@ services:
       context: .
       args:
         cores: 16
-    ports: ['7500:7500']
-    volumes: ['./src:/app', '/:/host']
+    ports: ['7501:7500']
+    volumes: ['./src:/app', '/:/host', '.:/frameserver']
     environment:
       - 'WORKERS=4'
       - 'AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}'

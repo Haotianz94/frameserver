@@ -6,6 +6,8 @@ import os
 import io
 import sys
 import traceback
+import json
+import pickle
 
 app = Flask(__name__)
 
@@ -21,35 +23,30 @@ storage = StorageBackend.make_from_config(config)
 def fetch():
     try:
         path = request.args.get('path')
-        frame = int(request.args.get('frame'))
-        scale = request.args.get('scale', None)
-        height = request.args.get('height', None)
+        frame_ids = json.loads(request.args.get('frame'))
 
         if FILESYSTEM == 'local':
             path = '/host' + path
 
         video_file = RandomReadFile(storage, path.encode('ascii'))
-
         video = Decoder(video_file)
-        img = video.retrieve([frame])[0]
-        img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
 
-        [cur_height, cur_width, _] = img.shape
-        target_width = None
-        target_height = None
-        if scale is not None:
-            scale = float(scale)
-            target_width = cur_width * scale
-            target_height = cur_height * scale
-        elif height is not None:
-            height = float(height)
-            target_height = height
-            target_width = target_height / cur_height * cur_width
+        img_list = video.retrieve(frame_ids)
+        img_list = [cv2.cvtColor(img, cv2.COLOR_RGB2BGR) for img in img_list]
 
-        if target_width is not None:
-            img = cv2.resize(img, (int(target_width), int(target_height)))
+        # store imgs to disk
+        os.makedirs('/frameserver/tmp/', exist_ok=True)
+        pickle.dump(img_list, open('/frameserver/tmp/test.pkl', 'wb'))
+        return Response(traceback.format_exc(), mimetype='text/plain')
 
-        return send_file(io.BytesIO(cv2.imencode('.jpg', img)[1]), mimetype='image/jpg')
+        # send imgs through http
+        # img_list_encode = [cv2.imencode('.jpg', img)[1] for img in img_list]
+        # import base64
+        # with open('test.pkl', 'wb') as fp:
+        #     data = pickle.dumps(img_list_encode)
+        #     encoded = base64.b64encode(data)
+        #     fp.write(encoded)
+        # return send_file('test.pkl', as_attachment=True)
 
     except Exception:
         return Response(traceback.format_exc(), mimetype='text/plain')
